@@ -48,27 +48,43 @@ def salvar(livros):
     con.execute(
         "CREATE TABLE IF NOT EXISTS livros ("
         "url TEXT PRIMARY KEY, titulo TEXT, preco TEXT, estoque TEXT, "
-        "coletado_em TEXT DEFAULT CURRENT_TIMESTAMP)"
+        "coletado_em TEXT DEFAULT (datetime('now', 'localtime')), "
+        "atualizado_em TEXT)"
     )
     novos = 0
-    for livro in livros:
-        cur = con.execute(
-            "INSERT OR IGNORE INTO livros (url, titulo, preco, estoque) VALUES (?, ?, ?, ?)",
-            livro,
-        )
-        novos += cur.rowcount
+    atualizados = 0
+    for url, titulo, preco, estoque in livros:
+        atual = con.execute(
+            "SELECT preco, estoque FROM livros WHERE url = ?", (url,)
+        ).fetchone()
+        if atual is None:
+            con.execute(
+                "INSERT INTO livros (url, titulo, preco, estoque) VALUES (?, ?, ?, ?)",
+                (url, titulo, preco, estoque),
+            )
+            novos += 1
+        elif atual != (preco, estoque):
+            con.execute(
+                "UPDATE livros SET preco = ?, estoque = ?, "
+                "atualizado_em = datetime('now', 'localtime') WHERE url = ?",
+                (preco, estoque, url),
+            )
+            logging.info("Atualizado: %s | %s -> %s | %s -> %s",
+                         titulo, atual[0], preco, atual[1], estoque)
+            atualizados += 1
     con.commit()
     con.close()
-    return novos
+    return novos, atualizados
 
 
 if __name__ == "__main__":
     try:
         logging.info("Início da execução (URL: %s)", URL)
         livros = coletar()
-        novos = salvar(livros)
-        logging.info("Coletados: %d | novos no banco: %d", len(livros), novos)
-        print(f"Coletados: {len(livros)} | novos no banco: {novos}")
+        novos, atualizados = salvar(livros)
+        resumo = f"Coletados: {len(livros)} | novos: {novos} | atualizados: {atualizados}"
+        logging.info(resumo)
+        print(resumo)
     except Exception:
         logging.exception("Falha na execução")
         print("Erro! Veja os detalhes em robo.log")
