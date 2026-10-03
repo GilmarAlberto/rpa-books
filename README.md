@@ -1,11 +1,11 @@
 # rpa-books
 
-Robô de RPA em Python que abre o site [Books to Scrape](https://books.toscrape.com/) em um navegador, coleta **título, preço e estoque** dos livros da página inicial e salva tudo em um banco **SQLite**, sem duplicar registros. Cada execução fica registrada em um arquivo de log, inclusive as falhas.
+Robô de RPA em Python que abre o site [Books to Scrape](https://books.toscrape.com/) em um navegador, percorre as 50 páginas do catálogo, coleta **título, preço e estoque** dos 1.000 livros e salva tudo em um banco **SQLite**, sem duplicar registros. Cada execução fica registrada em um arquivo de log, inclusive as falhas.
 
 ## O que o robô faz
 
 1. Abre o Chromium em modo invisível (headless) com o **Playwright**.
-2. Lê os 20 livros da página inicial.
+2. Lê os 20 livros de cada página e clica em "next" até chegar à última (50 páginas, cerca de 40 segundos).
 3. Grava no banco `livros.db` apenas os livros que ainda não estão lá.
 4. Registra o início, o resultado e qualquer erro em `robo.log`.
 
@@ -38,13 +38,13 @@ python robo.py
 Saída na primeira execução:
 
 ```
-Coletados: 20 | novos no banco: 20
+Coletados: 1000 | novos no banco: 1000
 ```
 
 Saída se rodar de novo (os livros já estão no banco, então nada é duplicado):
 
 ```
-Coletados: 20 | novos no banco: 0
+Coletados: 1000 | novos no banco: 0
 ```
 
 Para conferir quantos livros há no banco:
@@ -76,7 +76,9 @@ playwright._impl._errors.Error: Page.goto: net::ERR_NAME_NOT_RESOLVED at https:/
 
 ## Decisões técnicas
 
-- **Sem duplicação:** o título é a chave primária da tabela, e a inserção usa `INSERT OR IGNORE`. Assim, rodar o robô várias vezes é seguro (execução idempotente).
+- **Sem duplicação:** a URL do livro é a chave primária da tabela, e a inserção usa `INSERT OR IGNORE`. Assim, rodar o robô várias vezes é seguro (execução idempotente).
+- **URL como identificador, não o título:** o catálogo tem dois livros diferentes chamados "The Star-Touched Queen". Com o título como chave, um deles seria descartado sem aviso; a URL é única para cada livro.
+- **Paginação pelo botão "next":** o robô não assume que existem 50 páginas; segue o link até ele sumir, então continua funcionando se o catálogo crescer ou diminuir.
 - **Log em arquivo:** cada execução deixa rastro em `robo.log` com data e hora, o que é essencial para acompanhar um robô que roda sem ninguém olhando.
 - **Falha controlada:** qualquer erro é capturado, registrado com o traceback completo e devolvido como código de saída `1`, o que permite que um agendador (como o cron) perceba que algo deu errado.
 - **Configuração por variável de ambiente:** a URL pode ser trocada sem alterar o código.
@@ -93,6 +95,5 @@ rpa-books/
 
 ## Próximos passos
 
-- Percorrer todas as páginas do catálogo (paginação).
 - Atualizar preço e estoque de livros que já estão no banco.
 - Agendar a execução automática com o cron.

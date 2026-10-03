@@ -21,26 +21,39 @@ def coletar():
         navegador = p.chromium.launch(headless=True)
         pagina = navegador.new_page()
         pagina.goto(URL, timeout=30000)
-        for item in pagina.query_selector_all("article.product_pod"):
-            titulo = item.query_selector("h3 a").get_attribute("title")
-            preco = item.query_selector("p.price_color").inner_text()
-            estoque = item.query_selector("p.availability").inner_text().strip()
-            livros.append((titulo, preco, estoque))
+        paginas = 1
+        while True:
+            for item in pagina.query_selector_all("article.product_pod"):
+                link = item.query_selector("h3 a")
+                url = link.evaluate("e => e.href")  # endereço completo do livro
+                titulo = link.get_attribute("title")
+                preco = item.query_selector("p.price_color").inner_text()
+                estoque = item.query_selector("p.availability").inner_text().strip()
+                livros.append((url, titulo, preco, estoque))
+            # Sem botão "next" = última página
+            proxima = pagina.query_selector("li.next a")
+            if proxima is None:
+                break
+            proxima.click()
+            pagina.wait_for_load_state()
+            paginas += 1
         navegador.close()
+    logging.info("Páginas percorridas: %d", paginas)
     return livros
 
 
 def salvar(livros):
     con = sqlite3.connect(BANCO)
+    # A URL é a chave: há títulos repetidos no catálogo
     con.execute(
         "CREATE TABLE IF NOT EXISTS livros ("
-        "titulo TEXT PRIMARY KEY, preco TEXT, estoque TEXT, "
+        "url TEXT PRIMARY KEY, titulo TEXT, preco TEXT, estoque TEXT, "
         "coletado_em TEXT DEFAULT CURRENT_TIMESTAMP)"
     )
     novos = 0
     for livro in livros:
         cur = con.execute(
-            "INSERT OR IGNORE INTO livros (titulo, preco, estoque) VALUES (?, ?, ?)",
+            "INSERT OR IGNORE INTO livros (url, titulo, preco, estoque) VALUES (?, ?, ?, ?)",
             livro,
         )
         novos += cur.rowcount
