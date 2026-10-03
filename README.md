@@ -63,6 +63,18 @@ Para conferir quantos livros há no banco:
 python -c "import sqlite3; print(sqlite3.connect('livros.db').execute('SELECT COUNT(*) FROM livros').fetchone()[0])"
 ```
 
+## Agendamento automático (cron)
+
+O robô pode rodar sozinho todo dia com o cron do Linux. Abra o agendador com `crontab -e` e adicione uma linha como esta (ajuste o caminho da pasta):
+
+```
+0 8 * * * /caminho/rpa-books/.venv/bin/python /caminho/rpa-books/robo.py >> /caminho/rpa-books/cron.log 2>&1
+```
+
+Isso executa o robô todos os dias às 8h, usando o Python do ambiente virtual. O resumo de cada execução continua em `robo.log`; o `cron.log` guarda o que o robô imprimiria no terminal. O computador precisa estar ligado no horário: o cron não recupera execuções perdidas.
+
+O robô grava `livros.db` e `robo.log` na própria pasta, não importa de onde é chamado, porque o cron executa os comandos a partir de outro diretório.
+
 ## Testando o tratamento de erros
 
 A URL pode ser trocada pela variável de ambiente `ROBO_URL`. Com um endereço inexistente, o robô falha de forma controlada:
@@ -93,7 +105,7 @@ playwright._impl._errors.Error: Page.goto: net::ERR_NAME_NOT_RESOLVED at https:/
 - **Falha controlada:** qualquer erro é capturado, registrado com o traceback completo e devolvido como código de saída `1`, o que permite que um agendador (como o cron) perceba que algo deu errado.
 - **Configuração por variável de ambiente:** a URL pode ser trocada sem alterar o código.
 - **Datas no horário local:** `coletado_em` e `atualizado_em` usam `datetime('now', 'localtime')`, porque o `CURRENT_TIMESTAMP` do SQLite grava em UTC (3 horas à frente de Brasília) e não bateria com o log.
-- **Arquivos gerados fora do Git:** `livros.db` e `robo.log` estão no `.gitignore`.
+- **Arquivos gerados fora do Git:** `livros.db`, `robo.log` e `cron.log` estão no `.gitignore`.
 
 ## Estrutura
 
@@ -106,4 +118,5 @@ rpa-books/
 
 ## Próximos passos
 
-- Agendar a execução automática com o cron.
+- Avisar por e-mail quando uma execução falhar.
+- Guardar o histórico de preços, em vez de só o valor mais recente.

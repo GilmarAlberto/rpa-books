@@ -1,14 +1,17 @@
 import logging
 import os
 import sqlite3
+from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
 URL = os.environ.get("ROBO_URL", "https://books.toscrape.com/")
-BANCO = "livros.db"
+# Caminhos ao lado do robo.py: o cron roda a partir de outra pasta
+PASTA = Path(__file__).resolve().parent
+BANCO = PASTA / "livros.db"
 
 logging.basicConfig(
-    filename="robo.log",
+    filename=PASTA / "robo.log",
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(message)s",
     encoding="utf-8",
